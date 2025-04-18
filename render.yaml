@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: gstin-scraper-app
+    env: docker
+    plan: free
+    autoDeploy: true
