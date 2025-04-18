@@ -13,6 +13,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from multiprocessing.pool import ThreadPool
 
+# Download chromedriver path only once
+CHROMEDRIVER_PATH = ChromeDriverManager().install()
+
 def to_excel_bytes(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -25,7 +28,7 @@ def setup_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    return webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=chrome_options)
 
 def process_gstin(gstin):
     driver = setup_driver()
@@ -69,8 +72,8 @@ def process_gstin(gstin):
     return result
 
 st.set_page_config(page_title="GSTIN Scraper", layout="centered")
-st.title("GSTIN Bulk Scraper 🔍 (Fast Version)")
-st.markdown("Now with parallel scraping and progress bar!")
+st.title("GSTIN Bulk Scraper 🔍 (Fast Version - Fixed)")
+st.markdown("✅ Now with shared ChromeDriver and stable parallel scraping!")
 
 sample_data = pd.DataFrame({'GSTIN': ['06ABCDE1234F1Z5', '07XYZAB1234L1Z2']})
 with st.expander("📥 Download Sample Template"):
