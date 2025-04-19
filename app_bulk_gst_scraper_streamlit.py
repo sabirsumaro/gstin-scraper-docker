@@ -13,7 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from multiprocessing.pool import ThreadPool
 
-# Pre-download ChromeDriver once and share path
+# Download ChromeDriver once
 CHROMEDRIVER_EXECUTABLE_PATH = ChromeDriverManager().install()
 
 def to_excel_bytes(df):
@@ -28,7 +28,8 @@ def setup_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    return webdriver.Chrome(executable_path=CHROMEDRIVER_EXECUTABLE_PATH, options=chrome_options)
+    service = Service(CHROMEDRIVER_EXECUTABLE_PATH)
+    return webdriver.Chrome(service=service, options=chrome_options)
 
 def process_gstin(gstin):
     driver = setup_driver()
@@ -72,8 +73,8 @@ def process_gstin(gstin):
     return result
 
 st.set_page_config(page_title="GSTIN Scraper", layout="centered")
-st.title("GSTIN Bulk Scraper 🔍 (Stable & Fast)")
-st.markdown("✅ Now 100% working — no crash, no localhost error.")
+st.title("GSTIN Bulk Scraper 🔍 (Stable & Final)")
+st.markdown("✅ This version uses correct ChromeDriver Service binding — ready for Render.com!")
 
 sample_data = pd.DataFrame({'GSTIN': ['06ABCDE1234F1Z5', '07XYZAB1234L1Z2']})
 with st.expander("📥 Download Sample Template"):
