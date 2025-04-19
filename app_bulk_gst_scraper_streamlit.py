@@ -11,9 +11,8 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from multiprocessing.pool import ThreadPool
 
-# Download ChromeDriver once
+# Pre-download ChromeDriver once
 CHROMEDRIVER_EXECUTABLE_PATH = ChromeDriverManager().install()
 
 def to_excel_bytes(df):
@@ -31,9 +30,9 @@ def setup_driver():
     service = Service(CHROMEDRIVER_EXECUTABLE_PATH)
     return webdriver.Chrome(service=service, options=chrome_options)
 
-def process_gstin(gstin):
+def process_gstin_list(gstin_list):
     driver = setup_driver()
-    result = [gstin, "", "", "", "", "", ""]
+    results = []
 
     def get_data(label):
         try:
@@ -42,39 +41,48 @@ def process_gstin(gstin):
         except:
             return ""
 
-    try:
-        driver.get("https://irisgst.com/irisperidot/")
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "gstinno")))
-        driver.execute_script("document.querySelectorAll('.popup, iframe').forEach(p => p.remove())")
-        input_box = driver.find_element(By.ID, "gstinno")
-        input_box.clear()
-        input_box.send_keys(gstin)
-        driver.find_element(By.XPATH, "//button[contains(text(), 'SEARCH')]").click()
+    for i, gstin in enumerate(gstin_list):
+        result = [gstin, "", "", "", "", "", ""]
 
-        start_time = time.time()
-        while time.time() - start_time < 20:
-            if "Trade Name -" in driver.page_source:
-                break
-            time.sleep(1)
+        try:
+            driver.get("https://irisgst.com/irisperidot/")
+            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "gstinno")))
+            driver.execute_script("document.querySelectorAll('.popup, iframe').forEach(p => p.remove())")
+            input_box = driver.find_element(By.ID, "gstinno")
+            input_box.clear()
+            input_box.send_keys(gstin)
+            driver.find_element(By.XPATH, "//button[contains(text(), 'SEARCH')]").click()
 
-        driver.execute_script("document.querySelectorAll('.popup, iframe').forEach(p => p.remove())")
-        result = [
-            gstin,
-            get_data("Trade Name -"),
-            get_data("Legal Name of Business -"),
-            get_data("Principal Place of Business -"),
-            get_data("Additional Place of Business -"),
-            get_data("State Jurisdiction -"),
-            "Success"
-        ]
-    except Exception as e:
-        result[-1] = f"Error: {str(e)}"
+            start_time = time.time()
+            while time.time() - start_time < 20:
+                if "Trade Name -" in driver.page_source:
+                    break
+                time.sleep(1)
+
+            driver.execute_script("document.querySelectorAll('.popup, iframe').forEach(p => p.remove())")
+
+            result = [
+                gstin,
+                get_data("Trade Name -"),
+                get_data("Legal Name of Business -"),
+                get_data("Principal Place of Business -"),
+                get_data("Additional Place of Business -"),
+                get_data("State Jurisdiction -"),
+                "Success"
+            ]
+        except Exception as e:
+            result[-1] = f"Error: {str(e)}"
+
+        results.append(result)
+        st.progress(int((i + 1) / len(gstin_list) * 100))
+        st.text(f"Processed {i + 1} of {len(gstin_list)}")
+
     driver.quit()
-    return result
+    return results
 
 st.set_page_config(page_title="GSTIN Scraper", layout="centered")
-st.title("GSTIN Bulk Scraper 🔍 (Stable & Final)")
-st.markdown("✅ This version uses correct ChromeDriver Service binding — ready for Render.com!")
+st.title("GSTIN Bulk Scraper 🔍 (Single Chrome - Stable)")
+st.markdown("✅ Safe for Render — processes GSTINs one by one in a single Chrome instance.")
 
 sample_data = pd.DataFrame({'GSTIN': ['06ABCDE1234F1Z5', '07XYZAB1234L1Z2']})
 with st.expander("📥 Download Sample Template"):
@@ -91,26 +99,15 @@ if uploaded_file is not None:
     ws = wb.active
     gstin_list = [row[0].value for row in ws.iter_rows(min_row=3, min_col=1, max_col=1) if row[0].value]
 
-    progress = st.progress(0)
-    status_text = st.empty()
-    result_data = []
-
-    def update_progress(i):
-        percent = int((i + 1) / len(gstin_list) * 100)
-        progress.progress(percent)
-        status_text.text(f"⏳ Processed {i + 1} of {len(gstin_list)} GSTINs")
-
-    with ThreadPool(3) as pool:
-        for i, result in enumerate(pool.imap(process_gstin, gstin_list)):
-            result_data.append(result)
-            update_progress(i)
+    st.info(f"Total GSTINs to process: {len(gstin_list)}")
+    results = process_gstin_list(gstin_list)
 
     # Write to Excel
     output_wb = openpyxl.Workbook()
     output_ws = output_wb.active
     output_ws.title = "Results"
     output_ws.append(["GSTIN", "Trade Name", "Legal Name", "Principal Place", "Additional Place", "Jurisdiction", "Status"])
-    for row in result_data:
+    for row in results:
         output_ws.append(row)
     output_final = tmp_path.replace(".xlsx", "_Result.xlsx")
     output_wb.save(output_final)
